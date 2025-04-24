@@ -1,0 +1,25 @@
+{
+  "name": "vue-strapi",
+  "version": "1.0.0",
+  "description": "",
+  "main": "./dist/vue-strapi.umd.js",
+  "module": "./dist/vue-strapi.mjs",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "vite build"
+  },
+  "repository": {
+    "url": "interaapps/vue-strapi",
+    "type": "git"
+  },
+  "dependencies": {
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.3",
+    "typescript": "^5.5.3",
+    "vite": "^6.3.2",
+    "vite-plugin-dts": "^4.5.3"
+  },
+  "private": true
+}
