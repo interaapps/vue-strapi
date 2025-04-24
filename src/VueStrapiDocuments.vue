@@ -7,7 +7,9 @@ const props = defineProps<{
   filter?: StrapiQueryParams<T>;
 }>()
 
-const {entries, isLoading, error, meta, load} = useDocuments(props.plural, props.filter || {})
+const {entries, isLoading, error, meta, load, promise} = useDocuments(props.plural, props.filter || {})
+if (import.meta.server) await promise.value;
+
 watch(props, () => {
   load()
 }, {deep: true})

@@ -1,9 +1,9 @@
 import {App, computed, inject, ref} from "vue";
 
-export { default as BlockRenderer } from './BlockRenderer.vue'
-export { default as VueStrapiDocuments } from './VueStrapiDocuments.vue'
-export { default as VueStrapiDocument } from './VueStrapiDocument.vue'
-export { default as RichTextRenderer } from './richtextrenderer/RichTextRenderer.vue'
+export {default as BlockRenderer} from './BlockRenderer.vue'
+export {default as VueStrapiDocuments} from './VueStrapiDocuments.vue'
+export {default as VueStrapiDocument} from './VueStrapiDocument.vue'
+export {default as RichTextRenderer} from './richtextrenderer/RichTextRenderer.vue'
 
 
 const INJECTION_KEY = Symbol()
@@ -12,12 +12,14 @@ const INJECTION_KEY = Symbol()
 export type VueStrapiOptions = {
     baseUrl: string
     token?: string
-    fetch?: typeof globalThis.fetch
+    fetcher?: (url, ) => Response
     headers?: Record<string, string>
 }
 
 export const install = (app: App, options: VueStrapiOptions) => {
-    options.fetch ??= globalThis.fetch;
+    options.fetcher ??= (url: string, options) => {
+        return fetch(url, options).then(r => r.json())
+    };
     app.provide(INJECTION_KEY, options)
 }
 
@@ -41,11 +43,20 @@ function deepMerge<T extends Record<any, any>>(target: T, ...sources: T[]) {
     return target;
 }
 
-export const useStrapiFetch = <T>(url: string, options: RequestInit & {query?: Record<string, any>} = {}, {immediate = true} = {}) => {
+export const useStrapiFetch = <T>(url: string, options: RequestInit & {
+    query?: Record<string, any>
+} = {}, {immediate = true} = {}) => {
     const vueStrapi = inject<VueStrapiOptions>(INJECTION_KEY)
     const error = ref<unknown>(undefined)
     const data = ref<T | undefined>(undefined)
     const isLoading = ref(immediate ?? false)
+
+    let res: (() => void) | undefined = undefined
+    let rej: (() => void) | undefined = undefined
+    const promise = ref(new Promise<void>((pres, prej) => {
+        res = pres
+        rej = prej
+    }))
 
     const execute = async () => {
         isLoading.value = true
@@ -53,16 +64,16 @@ export const useStrapiFetch = <T>(url: string, options: RequestInit & {query?: R
             const outurl = `${vueStrapi?.baseUrl}${url}${options.query ? `?${new URLSearchParams(strapiQueryParams(options.query)).toString()}` : ''}`
             if ('query' in options) delete options.query
 
-            data.value = await fetch(outurl, deepMerge({
-
-                 headers: {
-                     // Authorization: vueStrapi?.token ? `Bearer ${vueStrapi?.token}` : undefined,
-                     'Content-Type': 'application/json'
-                 }
-            }, options)).then(r => r.json()) as T
-
+            data.value = await vueStrapi.fetcher(outurl, deepMerge({
+                headers: {
+                    ...(vueStrapi?.token ? {Authorization: `Bearer ${vueStrapi?.token}`} : {}),
+                    'Content-Type': 'application/json'
+                }
+            }, options)) as T
+            res?.()
         } catch (e) {
             error.value = e
+            rej?.(e)
         } finally {
             isLoading.value = false
         }
@@ -75,7 +86,8 @@ export const useStrapiFetch = <T>(url: string, options: RequestInit & {query?: R
         data,
         error,
         isLoading,
-        execute
+        execute,
+        promise
     }
 }
 
@@ -156,9 +168,13 @@ export type StrapiFieldsQueryParams<T> = {
 export type StrapiDocumentQueryParams<T> = StrapiLocaleQueryParams & StrapiFieldsQueryParams<T>
 
 export const useDocument = <T>(pluralId: string, id: string, query?: StrapiDocumentQueryParams<T>) => {
-    const { data, isLoading, error, execute: load} = useStrapiFetch<{ data: T }>(`/${pluralId}/${id}`, {query})
+    const {data, isLoading, error, execute: load, promise} = useStrapiFetch<{
+        data: T,
+        meta: any
+    }>(`/${pluralId}/${id}`, {query})
     const entry = computed(() => data.value?.data)
-    return {entry, isLoading, error, load}
+    const meta = computed(() => data.value?.meta)
+    return {entry, isLoading, error, load, meta, promise}
 }
 
 
@@ -175,19 +191,19 @@ export type StrapiQueryParams<T> = {
 
 
 export const useDocuments = <T>(pluralId: string, query?: StrapiQueryParams<T>) => {
-    const { data, isLoading, error, execute: load} = useStrapiFetch<StrapiDocumentsResponse<T>>(`/${pluralId}`, {query})
+    const {data, isLoading, error, execute: load, promise} = useStrapiFetch<StrapiDocumentsResponse<T>>(`/${pluralId}`, {query})
     const entries = computed(() => data.value?.data)
     const meta = computed(() => data.value?.meta)
-    return {entries, isLoading, error, meta, load}
+    return {entries, isLoading, error, meta, load, promise}
 }
 
 export const useFirstDocument = <T>(pluralId: string, query?: StrapiQueryParams<T>) => {
-    const { entries, isLoading, error, meta, load } = useDocuments<T>(pluralId, deepMerge({
+    const {entries, isLoading, error, meta, load, promise} = useDocuments<T>(pluralId, deepMerge({
         pagination: {
             page: 1,
             pageSize: 1
         }
     }, query || {}))
     const first = computed(() => entries.value?.[0])
-    return {entry: first, isLoading, error, meta, load}
+    return {entry: first, isLoading, error, meta, load, promise}
 }

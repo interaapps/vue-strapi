@@ -1,4 +1,4 @@
-# Vue Strapi
+# Vue Strapi `experimental`
 ```bash
 npm install vue-strapi
 ```
@@ -49,4 +49,37 @@ const {entry, error, isLoading} = useFirstDocument<Article>('articles')
       <template #entry="{ entry }">Entry!</template>
     </StrapiDocument>
 </template>
+```
+
+
+## NuxtJS
+### Plugin
+```ts
+import {install} from "vue-strapi";
+
+export default defineNuxtPlugin((nuxtApp) => {
+    const config = useRuntimeConfig()
+    
+    install(nuxtApp.vueApp, {
+        baseUrl: config.public.strapiBaseUrl,
+    })
+})
+```
+### SSR
+```vue
+<script lang="ts" setup>
+type Article = {
+    id: number;
+    slug: string;
+    title: string;
+    inhalt: any;
+    richtext: any;
+} & StrapiDocument
+
+const { entry, promise } = useDocument<Article>('articles', 'irsa8q9sdfxwii4gpmfuqrct')
+
+// Wait until the promise is resolved on the server
+if (import.meta.server) await promise.value;
+</script>
+<template></template>
 ```

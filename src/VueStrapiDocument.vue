@@ -8,6 +8,8 @@ const props = defineProps<{
 }>()
 
 const {entry, isLoading, error, load} = useDocument(props.plural, props.id)
+if (import.meta.server) await promise.value;
+
 watch(props, () => {
   load()
 }, {deep: true})
