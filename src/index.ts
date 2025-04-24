@@ -79,12 +79,6 @@ export const useStrapiFetch = <T>(url: string, options: RequestInit & {query?: R
     }
 }
 
-export const useDocument = <T>(pluralId: string, id: string) => {
-    const { data, isLoading, error, execute: load} = useStrapiFetch<{ data: T }>(`/${pluralId}/${id}`)
-    const entry = computed(() => data.value?.data)
-    return {entry, isLoading, error, load}
-}
-
 type Primitive = string | number | boolean | null;
 
 type Operators =
@@ -109,18 +103,6 @@ type Filter<T> = {
         : Filter<T[P]>; // Recursive nesting
 } & LogicalOperators<T>;
 
-export type StrapiQueryParams<T> = {
-    filters?: Filter<T>;
-    fields?: (keyof T | string)[];
-    populate?: (keyof T | string)[] | Record<string, any>;
-    sort?: (keyof T | string)[];
-    pagination?: {
-        page?: number;
-        pageSize?: number;
-        withCount?: boolean;
-    };
-};
-
 export type StrapiDocument = {
     id: string;
     documentId: string;
@@ -133,7 +115,6 @@ export type AnyStrapiDocument = StrapiDocument & {
     [key: string]: any;
 }
 
-// Object to filters syntax like filters[name][$eq]=value or sort[0]=value or anything else recursevly:
 export const strapiQueryParams = (params: Record<string, any>) => {
     const query: Record<string, string> = {};
 
@@ -164,6 +145,34 @@ export type StrapiDocumentsResponse<T> = {
         }
     }
 }
+
+export type StrapiLocaleQueryParams = {
+    locale?: string
+}
+export type StrapiFieldsQueryParams<T> = {
+    fields?: (keyof T | string)[];
+}
+
+export type StrapiDocumentQueryParams<T> = StrapiLocaleQueryParams & StrapiFieldsQueryParams<T>
+
+export const useDocument = <T>(pluralId: string, id: string, query?: StrapiDocumentQueryParams<T>) => {
+    const { data, isLoading, error, execute: load} = useStrapiFetch<{ data: T }>(`/${pluralId}/${id}`, {query})
+    const entry = computed(() => data.value?.data)
+    return {entry, isLoading, error, load}
+}
+
+
+export type StrapiQueryParams<T> = {
+    filters?: Filter<T>;
+    populate?: (keyof T | string)[] | Record<string, any>;
+    sort?: (keyof T | string)[];
+    pagination?: {
+        page?: number;
+        pageSize?: number;
+        withCount?: boolean;
+    };
+} & StrapiLocaleQueryParams & StrapiFieldsQueryParams<T>;
+
 
 export const useDocuments = <T>(pluralId: string, query?: StrapiQueryParams<T>) => {
     const { data, isLoading, error, execute: load} = useStrapiFetch<StrapiDocumentsResponse<T>>(`/${pluralId}`, {query})
